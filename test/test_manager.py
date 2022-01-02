@@ -550,6 +550,49 @@ def test_toggle_group(manager):
 
 
 @manager_config
+def test_switch_window(manager):
+    manager.c.group["a"].toscreen()
+    manager.test_window("one")
+    manager.test_window("two")
+
+    info = manager.c.group.info()
+    assert info.get("focus") == "two"
+
+    manager.c.switch_window(1)
+    info = manager.c.group.info()
+    assert info.get("focus") == "one"
+
+    manager.c.switch_window(3)
+    info = manager.c.group.info()
+    assert info.get("focus") == "one"
+
+    manager.c.switch_window(0)
+    info = manager.c.group.info()
+    assert info.get("focus") == "one"
+
+
+def test_change_window_order(manager):
+    manager.c.group["a"].toscreen()
+    manager.test_window("one")
+    manager.test_window("two")
+
+    pre_windows = manager.c.group.info().get("windows")
+    assert pre_windows == ["one", "two"]
+
+    manager.c.change_window_order(1)
+    post_windows = manager.c.group.info().get("windows")
+    assert post_windows == ["two", "one"]
+
+    manager.c.change_window_order(3)
+    post_windows = manager.c.group.info().get("windows")
+    assert post_windows == ["two", "one"]
+
+    manager.c.change_window_order(0)
+    post_windows = manager.c.group.info().get("windows")
+    assert post_windows == ["two", "one"]
+
+
+@manager_config
 def test_static(manager):
     manager.test_window("one")
     manager.test_window("two")

@@ -141,6 +141,11 @@ class TaskList(base._Widget, base.PaddingMixin, base.MarginMixin):
             None,
             "Icon size. " "(Calculated if set to None. Icons are hidden if set to 0.)",
         ),
+        (
+            "window_name_location",
+            False,
+            "Whether to show the location of the window in the title.",
+        ),
     ]
 
     def __init__(self, **config):
@@ -204,7 +209,10 @@ class TaskList(base._Widget, base.PaddingMixin, base.MarginMixin):
         elif window is window.group.current_window:
             markup_str = self.markup_focused
 
-        window_name = window.name if window and window.name else "?"
+        window_location = (
+            f"[{window.group.windows.index(window) + 1}] " if self.window_name_location else ""
+        )
+        window_name = window_location + window.name if window and window.name else "?"
 
         if callable(self.parse_text):
             try:
