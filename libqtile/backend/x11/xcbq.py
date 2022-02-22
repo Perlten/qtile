@@ -34,9 +34,11 @@
     A minimal EWMH-aware OO layer over xcffib. This is NOT intended to be
     complete - it only implements the subset of functionalty needed by qtile.
 """
+
+from __future__ import annotations
+
 import functools
 import operator
-import typing
 from itertools import chain, repeat
 
 import cairocffi
@@ -164,6 +166,7 @@ PropertyMap = {
     "_NET_NUMBER_OF_DESKTOPS": ("CARDINAL", 32),
     "_NET_CURRENT_DESKTOP": ("CARDINAL", 32),
     "_NET_DESKTOP_NAMES": ("UTF8_STRING", 8),
+    "_NET_DESKTOP_VIEWPORT": ("CARDINAL", 32),
     "_NET_WORKAREA": ("CARDINAL", 32),
     "_NET_ACTIVE_WINDOW": ("WINDOW", 32),
     "_NET_WM_DESKTOP": ("CARDINAL", 32),
@@ -192,6 +195,7 @@ SUPPORTED_ATOMS = [
     "_NET_CLIENT_LIST",
     "_NET_CLIENT_LIST_STACKING",
     "_NET_CURRENT_DESKTOP",
+    "_NET_DESKTOP_VIEWPORT",
     "_NET_ACTIVE_WINDOW",
     "_NET_SUPPORTING_WM_CHECK",
     # From http://standards.freedesktop.org/wm-spec/latest/ar01s05.html
@@ -789,7 +793,7 @@ def get_keysym(key: str) -> int:
     return keysym
 
 
-def translate_modifiers(mask: int) -> typing.List[str]:
+def translate_modifiers(mask: int) -> list[str]:
     r = []
     for k, v in ModMasks.items():
         if mask & v:
@@ -797,7 +801,7 @@ def translate_modifiers(mask: int) -> typing.List[str]:
     return r
 
 
-def translate_masks(modifiers: typing.List[str]) -> int:
+def translate_masks(modifiers: list[str]) -> int:
     """
     Translate a modifier mask specified as a list of strings into an or-ed
     bit representation.

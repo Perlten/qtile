@@ -24,11 +24,12 @@ import typing
 from collections import defaultdict
 
 from libqtile import configurable
-from libqtile.command.base import CommandObject, ItemT
+from libqtile.command.base import CommandObject
 from libqtile.log_utils import logger
 from libqtile.utils import has_transparency, rgb
 
 if typing.TYPE_CHECKING:
+    from libqtile.command.base import ItemT
     from libqtile.widget.base import _Widget
 
 
@@ -63,7 +64,7 @@ class Gap(CommandObject):
         self.height = None
         self.horizontal = None
 
-    def _configure(self, qtile, screen):
+    def _configure(self, qtile, screen, **kwargs):
         self.qtile = qtile
         self.screen = screen
         self.size = self.initial_size
@@ -193,9 +194,14 @@ class Bar(Gap, configurable.Configurable):
         self.future = None
         self._borders_drawn = False
 
-    def _configure(self, qtile, screen):
-        # We only want to adjust margin sizes once unless there's a new strut
-        if not self._configured or self._add_strut:
+    def _configure(self, qtile, screen, reconfigure=False):
+        """
+        Configure the bar. `reconfigure` is set to True when screen dimensions
+        change, forcing a recalculation of the bar's dimensions.
+        """
+        # We only want to adjust margin sizes once unless there's a new strut or we're
+        # reconfiguring the bar because the screen has changed
+        if not self._configured or self._add_strut or reconfigure:
             Gap._configure(self, qtile, screen)
             self._borders_drawn = False
 
@@ -249,6 +255,7 @@ class Bar(Gap, configurable.Configurable):
             # We get _configure()-ed with an existing window when screens are getting
             # reconfigured but this screen is present both before and after
             self.window.place(self.x, self.y, width, height, 0, None)
+
         else:
             # Whereas we won't have a window if we're startup up for the first time or
             # the window has been killed by us no longer using the bar's screen
@@ -273,10 +280,7 @@ class Bar(Gap, configurable.Configurable):
             self.window.opacity = self.opacity
             self.window.unhide()
 
-            self.drawer = self.window.create_drawer(width, height)
-            self.drawer.clear(self.background)
-
-            self.window.process_window_expose = self.draw
+            self.window.process_window_expose = self.process_window_expose
             self.window.process_button_click = self.process_button_click
             self.window.process_button_release = self.process_button_release
             self.window.process_pointer_enter = self.process_pointer_enter
@@ -284,13 +288,21 @@ class Bar(Gap, configurable.Configurable):
             self.window.process_pointer_motion = self.process_pointer_motion
             self.window.process_key_press = self.process_key_press
 
+        # We create a new drawer even if there's already a window to ensure the
+        # drawer is the right size.
+        self.drawer = self.window.create_drawer(width, height)
+        self.drawer.clear(self.background)
+
         self.crashed_widgets = []
         if self._configured:
             for i in self.widgets:
                 self._configure_widget(i)
         else:
             for idx, i in enumerate(self.widgets):
-                if i.configured:
+                # Create a mirror if this widget is already configured but isn't a Mirror
+                # We don't do isinstance(i, Mirror) because importing Mirror (at the top)
+                # would give a circular import as libqtile.widget.base imports lbqtile.bar
+                if i.configured and i.__class__.__name__ != "Mirror":
                     i = i.create_mirror()
                     self.widgets[idx] = i
                 success = self._configure_widget(i)
@@ -434,7 +446,7 @@ class Bar(Gap, configurable.Configurable):
                 i.offsety = offset
                 offset += i.length
 
-    def get_widget_in_position(self, x: int, y: int) -> typing.Optional[_Widget]:
+    def get_widget_in_position(self, x: int, y: int) -> _Widget | None:
         if self.horizontal:
             for i in self.widgets:
                 if x < i.offsetx + i.length:
@@ -446,6 +458,11 @@ class Bar(Gap, configurable.Configurable):
         return None
 
     def process_button_click(self, x: int, y: int, button: int) -> None:
+        # If we're clicking on a bar that's not on the current screen, focus that screen
+        if self.screen is not self.qtile.current_screen:
+            index = self.qtile.screens.index(self.screen)
+            self.qtile.focus_screen(index, warp=False)
+
         widget = self.get_widget_in_position(x, y)
         if widget:
             widget.button_press(
@@ -514,6 +531,13 @@ class Bar(Gap, configurable.Configurable):
         if self.saved_focus is not None:
             self.saved_focus.focus(False)
         self.has_keyboard = None
+
+    def process_window_expose(self):
+        """
+        If the window is being redrawn we need to redraw borders too.
+        """
+        self._borders_drawn = False
+        self.draw()
 
     def draw(self):
         if not self.widgets:

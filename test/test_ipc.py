@@ -1,6 +1,4 @@
-# Copyright (c) 2014 Sean Vig
-# Copyright (c) 2014 Florian Scherf
-# Copyright (c) 2014 Tycho Andersen
+# Copyright (c) 2022 Jaakko Sirén
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -20,20 +18,34 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# https://bitbucket.org/tarek/flake8/issue/141/improve-flake8-statement-to-ignore
-# is annoying, so we ignore libqtile/layout/__init__.py completely
-# flake8: noqa
+import pytest
 
-from libqtile.layout.bsp import Bsp
-from libqtile.layout.columns import Columns
-from libqtile.layout.floating import Floating
-from libqtile.layout.matrix import Matrix
-from libqtile.layout.max import Max
-from libqtile.layout.ratiotile import RatioTile
-from libqtile.layout.slice import Slice
-from libqtile.layout.stack import Stack
-from libqtile.layout.tile import Tile
-from libqtile.layout.tree import TreeTab
-from libqtile.layout.verticaltile import VerticalTile
-from libqtile.layout.xmonad import MonadTall, MonadWide, MonadThreeCol
-from libqtile.layout.zoomy import Zoomy
+from libqtile.ipc import _IPC
+
+
+def test_ipc_json_encoder_supports_sets():
+    serialized = _IPC.pack({"foo": set()}, is_json=True)
+    assert serialized == b'{"foo": []}'
+
+
+def test_ipc_json_throws_error_on_unsupported_field():
+    class NonSerializableType:
+        ...
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Tried to JSON serialize unsupported type <class '"
+            "test.test_ipc.test_ipc_json_throws_error_on_unsupported_field.<locals>.NonSerializableType"
+            "'>.*"
+        ),
+    ):
+        _IPC.pack({"foo": NonSerializableType()}, is_json=True)
+
+
+def test_ipc_marshall_error_on_unsupported_field():
+    class NonSerializableType:
+        ...
+
+    with pytest.raises(ValueError, match="unmarshallable object"):
+        _IPC.pack({"foo": NonSerializableType()})
